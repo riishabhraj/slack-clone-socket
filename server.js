@@ -3,6 +3,26 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 
+// Utility for conditional logging (completely silent in production)
+const logger = {
+    info: (message, ...args) => {
+        if (process.env.NODE_ENV !== 'production') {
+            console.log(message, ...args);
+        }
+    },
+    warn: (message, ...args) => {
+        if (process.env.NODE_ENV !== 'production') {
+            console.warn(message, ...args);
+        }
+    },
+    error: (message, ...args) => {
+        // Only log critical errors in production
+        if (process.env.NODE_ENV !== 'production' || message.includes('CRITICAL')) {
+            console.error(message, ...args);
+        }
+    }
+};
+
 // Create Express app
 const app = express();
 app.use(cors({
@@ -40,21 +60,21 @@ const connectedUsers = new Map();
 
 // Socket.IO connection handler
 io.on('connection', (socket) => {
-    console.log(`Socket connected: ${socket.id}`);
+    logger.info(`Socket connected: ${socket.id}`);
 
     // Store the user in connected users map
     const userId = socket.handshake.auth.userId;
     if (userId) {
-        console.log(`User ${userId} connected with socket ${socket.id}`);
+        logger.info(`User ${userId} connected with socket ${socket.id}`);
         connectedUsers.set(userId, socket.id);
     } else {
-        console.warn('Socket connected without user ID in auth data');
+        logger.warn('Socket connected without user ID in auth data');
     }
 
     // Handle authentication events
     socket.on('authenticate', (data) => {
         if (data.userId) {
-            console.log(`User ${data.userId} authenticated with socket ${socket.id}`);
+            logger.info(`User ${data.userId} authenticated with socket ${socket.id}`);
             connectedUsers.set(data.userId, socket.id);
         }
     });
@@ -63,20 +83,20 @@ io.on('connection', (socket) => {
     socket.on('joinChannel', (channelId) => {
         const roomName = `channel:${channelId}`;
         socket.join(roomName);
-        console.log(`Socket ${socket.id} joined channel ${channelId}`);
+        logger.info(`Socket ${socket.id} joined channel ${channelId}`);
     });
 
     // Handle leaving channel
     socket.on('leaveChannel', (channelId) => {
         const roomName = `channel:${channelId}`;
         socket.leave(roomName);
-        console.log(`Socket ${socket.id} left channel ${channelId}`);
+        logger.info(`Socket ${socket.id} left channel ${channelId}`);
     });
 
     // Handle sending messages
     socket.on('sendMessage', ({ channelId, content }) => {
         try {
-            console.log(`Message in channel ${channelId}: ${content.substring(0, 20)}${content.length > 20 ? '...' : ''}`);
+            logger.info(`Message in channel ${channelId}: ${content.substring(0, 20)}${content.length > 20 ? '...' : ''}`);
 
             // Create a temporary message object
             const tempMessage = {
@@ -96,7 +116,7 @@ io.on('connection', (socket) => {
             // Broadcast to everyone in the channel
             socket.to(`channel:${channelId}`).emit('newMessage', tempMessage);
         } catch (error) {
-            console.error('Error processing message:', error);
+            logger.error('Error processing message:', error);
         }
     });
 
@@ -182,7 +202,7 @@ io.on('connection', (socket) => {
 
     // Handle disconnect
     socket.on('disconnect', () => {
-        console.log(`Socket disconnected: ${socket.id}`);
+        logger.info(`Socket disconnected: ${socket.id}`);
         if (userId && connectedUsers.get(userId) === socket.id) {
             connectedUsers.delete(userId);
         }
@@ -194,5 +214,5 @@ const PORT = process.env.PORT || 4000;
 
 // Start server
 server.listen(PORT, () => {
-    console.log(`Socket.IO server running on port ${PORT}`);
+    logger.info(`Socket.IO server running on port ${PORT}`);
 });
