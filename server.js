@@ -26,7 +26,7 @@ const io = new Server(server, {
     path: '/socket.io',
     cors: {
         origin: process.env.NODE_ENV === 'production'
-            ? ['https://your-frontend-domain.vercel.app'] // Replace with your Vercel app domain
+            ? '*' // Allow any origin in production since we're already filtering at the Express level
             : ['http://localhost:3000'],
         methods: ['GET', 'POST'],
         credentials: true
